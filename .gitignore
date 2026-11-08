@@ -1,0 +1,28 @@
+# Python & Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment & Secrets
+.env
+*.env.local
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Database & Generated Reports
+reports/*.pdf
+!reports/.gitkeep
+database/*.db
+database/*.db-journal
+
+# Streamlit Local Runtime
+.streamlit/secrets.toml
