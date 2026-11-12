@@ -30,7 +30,7 @@ def call_llm(
 ) -> str:
     """
     Unified LLM call supporting Google Gemini and OpenAI-compatible endpoints,
-    with an intelligent fallback simulator when no API key is provided.
+    with an intelligent fallback simulator when no API key is provided or models are busy.
     """
     active_key = api_key or get_configured_api_key(provider)
 
@@ -41,21 +41,39 @@ def call_llm(
             from google.genai import types
 
             client = genai.Client(api_key=active_key)
-            model = model_name or "gemini-2.5-flash"
+            
+            # List of models to try in order of availability and speed
+            candidate_models = [model_name] if model_name else [
+                "gemini-3.1-flash-lite",
+                "gemini-3.8-flash",
+                "gemini-flash-latest"
+            ]
+
             config = types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 temperature=temperature,
             )
-            response = client.models.generate_content(
-                model=model,
-                contents=prompt,
-                config=config
-            )
-            if response and response.text:
-                return response.text.strip()
+
+            last_error = None
+            for model in candidate_models:
+                if not model:
+                    continue
+                try:
+                    response = client.models.generate_content(
+                        model=model,
+                        contents=prompt,
+                        config=config
+                    )
+                    if response and response.text:
+                        return response.text.strip()
+                except Exception as model_err:
+                    last_error = model_err
+                    continue
+
+            if last_error:
+                print(f"[LLM Warning] Gemini models failed: {last_error}. Falling back to simulation.")
         except Exception as e:
-            # If API quota or model error, fallback gracefully
-            print(f"[LLM Warning] Gemini call failed: {e}. Falling back to simulation.")
+            print(f"[LLM Warning] Gemini initialization failed: {e}. Falling back to simulation.")
 
     # 2. OpenAI / Groq Provider
     elif provider.lower() in ("openai", "groq") and active_key:
@@ -83,7 +101,7 @@ def call_llm(
 
 def simulate_response(prompt: str, system_instruction: str) -> str:
     """
-    Realistic simulation engine when no API key is configured.
+    Realistic simulation engine when no API key is configured or services are offline.
     Generates structured, dynamic interview plans and detailed feedback.
     """
     prompt_lower = prompt.lower()
